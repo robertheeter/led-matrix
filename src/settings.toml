@@ -1,0 +1,10 @@
+# private credentials (loaded as environment variables)
+
+CIRCUITPY_WIFI_SSID = ""
+CIRCUITPY_WIFI_PASSWORD = ""
+
+ADAFRUIT_AIO_USERNAME = ""
+ADAFRUIT_AIO_KEY = ""
+
+SPOTIFY_CLIENT_ID = ""
+SPOTIFY_CLIENT_SECRET = ""

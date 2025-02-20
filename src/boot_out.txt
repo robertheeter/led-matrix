@@ -1,0 +1,4 @@
+Adafruit CircuitPython 9.2.4 on 2025-01-29; Adafruit MatrixPortal S3 with ESP32S3
+Board ID:adafruit_matrixportal_s3
+UID:
+boot.py output:
