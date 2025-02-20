@@ -32,16 +32,21 @@ with open(APP_PATH, 'r') as file:
 
 app_list = data['app_list']
 previous_app = data['previous_app']
-previous_app_index = app_list.index(previous_app)
+reload = data['reload']
 
-if previous_app_index == len(app_list) - 1: # select next sequential app
-    app = app_list[0]
+if reload:
+    app = previous_app
 else:
-    app = app_list[previous_app_index + 1]
+    previous_app_index = app_list.index(previous_app)
+
+    if previous_app_index == len(app_list) - 1: # select next sequential app
+        app = app_list[0]
+    else:
+        app = app_list[previous_app_index + 1]
 
 with open(APP_PATH, 'w') as file:
-    data = {'previous_app': app, 'app_list': app_list}
-    json.dump(data, file) # write current app to json file
+    data = {'previous_app': app, 'app_list': app_list, 'reload': False}
+    json.dump(data, file) # write current app to json file (reload = False since app not completed)
 
 
 # START SELECTED APP
@@ -66,3 +71,7 @@ while not complete:
         # wait before retrying
         print(f"app reload: {ERROR_LATENCY} seconds")
         time.sleep(ERROR_LATENCY)
+
+with open(APP_PATH, 'w') as file:
+    data = {'previous_app': app, 'app_list': app_list, 'reload': True}
+    json.dump(data, file) # write current app to json file (reload = True since app completed)
