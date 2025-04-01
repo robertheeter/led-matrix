@@ -1,8 +1,8 @@
 import os
 import json
 
-from spotipy.oauth2 import Spotify, SpotifyOAuth
-
+from spotipy.oauth2 import SpotifyOAuth
+from spotipy.client import Spotify
 
 # PARAMETERS
 SPOTIFY_CLIENT_ID = "" # string of alphanumeric characters
