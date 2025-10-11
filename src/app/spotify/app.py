@@ -34,27 +34,27 @@ RETRY_LATENCY = 5  # latency (wait) before retrying between iterations after err
 APP_PATH = "/app/spotify/app.py" # app file path
 LOG_PATH = "/code_out.txt" # log file path
 
-WIFI_SSID = os.getenv("CIRCUITPY_WIFI_SSID")
-WIFI_PASSWORD = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+WIFI_SSID = os.getenv("CIRCUITPY_WIFI_SSID") # wifi name
+WIFI_PASSWORD = os.getenv("CIRCUITPY_WIFI_PASSWORD") # wifi password
 
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID") # Spotify client ID
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET") # Spotify client secret
 
-SPOTIFY_TOKENS_PATH = "/app/spotify/tokens.json"
-SPOTIFY_IMAGE_PATH = "/app/spotify/temp.jpeg"
-SPOTIFY_IMAGE_PATH_FILL = "/app/spotify/fill.bmp"
+SPOTIFY_TOKENS_PATH = "/app/spotify/tokens.json" # tokens.json file path
+SPOTIFY_IMAGE_PATH = "/app/spotify/temp.jpeg" # temp.jpeg file path
+SPOTIFY_IMAGE_PATH_FILL = "/app/spotify/fill.bmp" # fill.bmp file path
 
-SPOTIFY_REFRESH_TOKEN_URL = "https://accounts.spotify.com/api/token"
-SPOTIFY_CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
+SPOTIFY_REFRESH_TOKEN_URL = "https://accounts.spotify.com/api/token" # Spotify refresh token URL
+SPOTIFY_CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing" # Spotify currently playing URL
 
-BACKGROUND_COLOR = 0x000000 # black
+BACKGROUND_COLOR = 0x000000 # background color (black)
 BIT_DEPTH = 2 # color depth
 
 TEXT_FONT = FONT # default font
-TEXT_COLOR = 0x919492 # gray-white
+TEXT_COLOR = 0x919492 # text color (gray-white)
 
 
-# METHOD TO GET SPOTIFY TOKENS
+# GET SPOTIFY TOKENS
 def get_tokens():
     with open(SPOTIFY_TOKENS_PATH, 'r') as file:
         data = json.load(file) # load tokens from json file
@@ -65,7 +65,7 @@ def get_tokens():
     return access_token, refresh_token
 
 
-# METHOD TO UPDATE SPOTIFY TOKENS
+# UPDATE SPOTIFY TOKENS
 def update_tokens(requests, refresh_token):
     try:
         headers = {
@@ -108,7 +108,7 @@ def update_tokens(requests, refresh_token):
         return exit_code, None, None, None
 
 
-# METHOD TO GET SPOTIFY CURRENTLY PLAYING SONG
+# GET SPOTIFY CURRENTLY PLAYING SONG
 def get_currently_playing(requests, access_token):
     try:
         headers = {
@@ -170,7 +170,7 @@ def get_currently_playing(requests, access_token):
         return exit_code, None, None, None, None, None, None
 
     
-# METHOD TO FORMAT SONG AND ARTIST TEXT
+# FORMAT SONG AND ARTIST TEXT
 def format_song_artist(song_name, artist_list, spacer=5):
     formatted_song = song_name
     formatted_artist = ', '.join(artist_list)
@@ -203,7 +203,7 @@ def format_song_artist(song_name, artist_list, spacer=5):
     return formatted_song, formatted_artist
 
 
-# METHOD TO GET ALBUM ART IMAGE
+# GET ALBUM ART IMAGE
 def get_image(requests, image_url):
     try:
         response = requests.get(image_url)
@@ -231,7 +231,7 @@ def get_image(requests, image_url):
         return exit_code, None, None
 
 
-# METHOD TO DOWNSAMPLE 64x64 TO 32x32 BITMAP
+# DOWNSAMPLE 64x64 TO 32x32 BITMAP
 def downsample_bitmap(bitmap, corner=[0, 0]):
     downsampled_bitmap = Bitmap(32, 32, 65535) # 256-color 16-bit palette
     
@@ -245,12 +245,12 @@ def downsample_bitmap(bitmap, corner=[0, 0]):
     return downsampled_bitmap
 
 
-# METHOD TO SCROLL TEXT HORIZONTALLY
+# SCROLL TEXT HORIZONTALLY
 def scroll(label):
     group = label[0]
-    group.x -= 1  # move label left
+    group.x -= 1 # move label left
 
-    if group.x < (-1*6*len(label.text) - 32):  # if label has moved full length, refresh to initial position and return True
+    if group.x < (-1*6*len(label.text) - 32): # if label has moved full length, refresh to initial position and return True
         group.x = 0
         return True
     
