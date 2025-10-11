@@ -42,36 +42,36 @@ SLEEP_LATENCY = 10 # latency (wait) between iterations while sleeping [seconds]
 APP_PATH = "/app/subway/app.py" # app file path
 LOG_PATH = "/code_out.txt" # log file path
 
-WIFI_SSID = os.getenv("CIRCUITPY_WIFI_SSID")
-WIFI_PASSWORD = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+WIFI_SSID = os.getenv("CIRCUITPY_WIFI_SSID") # wifi name
+WIFI_PASSWORD = os.getenv("CIRCUITPY_WIFI_PASSWORD") # wifi password
 
-AIO_USERNAME = os.getenv("ADAFRUIT_AIO_USERNAME")
-AIO_KEY = os.getenv("ADAFRUIT_AIO_KEY")
-AIO_TIME_URL = f"https://io.adafruit.com/api/v2/{AIO_USERNAME}/integrations/time/strftime?x-aio-key={AIO_KEY}&fmt=%25Y%3A%25m%3A%25d%3A%25H%3A%25M%3A%25S&tz=Etc/UTC"
+AIO_USERNAME = os.getenv("ADAFRUIT_AIO_USERNAME") # Adafruit IO username
+AIO_KEY = os.getenv("ADAFRUIT_AIO_KEY") # Adafruit IO key
+AIO_TIME_URL = f"https://io.adafruit.com/api/v2/{AIO_USERNAME}/integrations/time/strftime?x-aio-key={AIO_KEY}&fmt=%25Y%3A%25m%3A%25d%3A%25H%3A%25M%3A%25S&tz=Etc/UTC" # Adafruit IO URL for current time (UTC)
 
-MTA_STOP_ID = 'Q04' # MTA ID for 86th Street Station
-MTA_ROUTE_ID = 'Q' # MTA ID for Q Train
-MTA_STOP_URL = f"https://demo.transiter.dev/systems/us-ny-subway/stops/{MTA_STOP_ID}?skip_service_maps=true&skip_alerts=true&skip_transfers=true"
-MTA_STOP_URL_DIRECTIONS = ['downtown and brooklyn', 'downtown', 'brooklyn']
-MTA_ROUTE_URL = f"https://demo.transiter.dev/systems/us-ny-subway/routes/{MTA_ROUTE_ID}?skip_service_maps=true&skip_estimated_headways=true"
+MTA_STOP_ID = 'Q03' # MTA stop ID (72nd Street Q Station)
+MTA_ROUTE_ID = 'Q' # MTA route ID (Q Train)
+MTA_STOP_URL = f"https://demo.transiter.dev/systems/us-ny-subway/stops/{MTA_STOP_ID}?skip_service_maps=true&skip_alerts=true&skip_transfers=true" # MTA URL for stop
+MTA_STOP_URL_DIRECTIONS = ['downtown and brooklyn', 'downtown', 'brooklyn'] # directions to include from stop data
+MTA_ROUTE_URL = f"https://demo.transiter.dev/systems/us-ny-subway/routes/{MTA_ROUTE_ID}?skip_service_maps=true&skip_estimated_headways=true" # MTA URL for route
 
-BACKGROUND_COLOR = 0x000000 # black
+BACKGROUND_COLOR = 0x000000 # background color (black)
 BIT_DEPTH = 2 # color depth
 
 TEXT_FONT = FONT # default font
 
-ROUTE_ICON_COLOR = 0xFCB80A # yellow
-TEXT_LABEL_COLOR = 0x919492 # gray-white
-ALERT_ICON_COLOR = 0xB22222 # red
-LIVE_ICON_COLOR = 0x919492 # gray-white
+ROUTE_ICON_COLOR = 0xFCB80A # route icon color (yellow)
+TEXT_LABEL_COLOR = 0x919492 # text label color (gray-white)
+ALERT_ICON_COLOR = 0xB22222 # alert icon color (red)
+LIVE_ICON_COLOR = 0x919492 # flashing live icon color (gray-white)
 
-if RESTART_HOUR == 0:
+if RESTART_HOUR == 0: # handle logic for restarting device at RESTART_HOUR
     RESTART_HOUR_PREV = 23
 else:
     RESTART_HOUR_PREV = RESTART_HOUR - 1
 
 
-# METHOD TO GET CURRENT UTC TIME DATA
+# GET CURRENT TIME
 def get_time(requests):
     try:
         with requests.get(AIO_TIME_URL) as response:
@@ -94,40 +94,41 @@ def get_time(requests):
         return None, None
 
 
-# METHOD TO GET MTA TRAIN DATA
+# GET TRAIN
 def get_train(requests, current_time):
-    if not current_time:
+    if not current_time: # require current_time
         return None, None, None, None
     
     try:
         mta_response = requests.get(MTA_STOP_URL).json()
+        all_trains = mta_response['stopTimes']
 
-        trains = mta_response['stopTimes']
-
-        target_trains = []
-        for train in trains:
-            direction_name = train['headsign']
+        upcoming_trains = []
+        for t in all_trains:
+            direction_name = t['headsign']
             
             if direction_name.lower() in MTA_STOP_URL_DIRECTIONS:
-                train_symbol = train['trip']['route']['id']
-                destination_name = train['destination']['name']
-                departure_time = int(train['departure']['time'])
-                remaining_time = departure_time - current_time
+                train_symbol = t['trip']['route']['id']
+                destination_name = t['destination']['name']
+                
+                _departure_time = int(t['departure']['time'])
+                remaining_time = max(0, int((_departure_time - current_time)/60)) # convert to minutes
 
-                target_trains.append({
-                    'direction_name': direction_name,
+                if len(upcoming_trains) > 1 and remaining_time == 0:
+                    continue # do not include more than one train in "0 minutes"
+
+                upcoming_trains.append({
                     'train_symbol': train_symbol,
                     'destination_name': destination_name,
-                    'departure_time': departure_time,
                     'remaining_time': remaining_time
                     })
 
-            if len(target_trains) >= 3: # get next 3 trains
+            if len(upcoming_trains) >= 3: # get next 3 trains
                 break
-                
-        times = [max(0, int(train['remaining_time']/60)) for train in target_trains]
-        symbol = target_trains[0]['train_symbol']
-        destination = target_trains[0]['destination_name']
+        
+        times = [t['remaining_time'] for t in upcoming_trains]
+        symbol = upcoming_trains[0]['train_symbol']
+        destination = upcoming_trains[0]['destination_name']
 
         mta_response = requests.get(MTA_ROUTE_URL).json()
         alert = len(mta_response['alerts']) > 0
@@ -144,12 +145,12 @@ def get_train(requests, current_time):
         return None, None, None, None
 
 
-# METHOD TO SCROLL TEXT HORIZONTALLY
+# SCROLL TEXT HORIZONTALLY
 def scroll(label):
     group = label[0]
-    group.x -= 1  # move label left
+    group.x -= 1 # move label left
 
-    if group.x < -1*6*len(label.text):  # if label has moved full length, refresh to initial position and return True
+    if group.x < -1*6*len(label.text): # if label has moved full length, refresh to initial position and return True
         group.x = 0
         return True
     
@@ -238,7 +239,7 @@ route_circle_4 = Circle(
     x0=12+1, y0=15+1, r=9, fill=ROUTE_ICON_COLOR
 )
 
-# symbol for route ('Q')
+# symbol for route
 route_label_1 = Label(
     font=TEXT_FONT, color=BACKGROUND_COLOR, text=MTA_ROUTE_ID, x=10, y=16, scale=1
 )
@@ -299,7 +300,7 @@ while True:
             print(f"setup: {setup}")
             print(f"free memory: {mem_free()}")
 
-        # get UTC time data
+        # get current time
         current_time, current_hour = get_time(requests)
 
         if current_time and isinstance(current_hour, int):
@@ -333,14 +334,14 @@ while True:
         else:
             live = False
 
-        # get train data
+        # get train
         times, symbol, destination, alert = get_train(requests, current_time)
 
         if times and symbol and destination and alert in [True, False]:
             
-            formatted_times = ','.join([str(t) for t in times[:3]])
+            formatted_times = ','.join([str(t) for t in times[:3]]) # format next 3 times
             if len(formatted_times) > 6:
-                formatted_times = ','.join([str(t) for t in times[:2]])
+                formatted_times = ','.join([str(t) for t in times[:2]]) # format next 2 times if too long
             
             formatted_symbol = str(symbol)
 
