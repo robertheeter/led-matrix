@@ -16,12 +16,11 @@ from gc import mem_free
 from terminalio import FONT
 from rgbmatrix import RGBMatrix
 from framebufferio import FramebufferDisplay
+from displayio import Group, release_displays
 
 from adafruit_display_shapes.rect import Rect
 from adafruit_display_shapes.circle import Circle
 from adafruit_display_text.label import Label
-
-from displayio import Group, release_displays
 
 
 # PARAMETERS
@@ -34,10 +33,10 @@ ON_HOUR = 12 # turn on hour (UTC) [hour]
 OFF_HOUR = 3 # turn off hour (UTC) [hour]
 RESTART_HOUR = 4 # restart hour (UTC) [hour]
 
-TEXT_LABEL_LATENCY = 0.06 # scroll speed for top text label (and refresh speed at the end of each scroll) [seconds]
-LIVE_ICON_LATENCY = 6 # flash speed for live icon [seconds]
-RETRY_LATENCY = 5 # latency (wait) before retrying between iterations after error [seconds]
-SLEEP_LATENCY = 10 # latency (wait) between iterations while sleeping [seconds]
+TEXT_LABEL_DELAY = 0.06 # scroll speed for top text label (and refresh speed at the end of each scroll) [seconds]
+LIVE_ICON_DELAY = 6 # flash speed for live icon [seconds]
+RETRY_DELAY = 5 # delay before retrying between iterations after error [seconds]
+SLEEP_DELAY = 10 # delay between iterations while sleeping [seconds]
 
 APP_PATH = "/app/subway/app.py" # app file path
 LOG_PATH = "/code_out.txt" # log file path
@@ -100,7 +99,9 @@ def get_train(requests, current_time):
         return None, None, None, None
     
     try:
-        mta_response = requests.get(MTA_STOP_URL).json()
+        with requests.get(MTA_STOP_URL) as response:
+            mta_response = response.json()
+
         all_trains = mta_response['stopTimes']
 
         upcoming_trains = []
@@ -130,7 +131,9 @@ def get_train(requests, current_time):
         symbol = upcoming_trains[0]['train_symbol']
         destination = upcoming_trains[0]['destination_name']
 
-        mta_response = requests.get(MTA_ROUTE_URL).json()
+        with requests.get(MTA_ROUTE_URL) as response:
+            mta_response = response.json()
+
         alert = len(mta_response['alerts']) > 0
         
         return times, symbol, destination, alert
@@ -157,7 +160,7 @@ def scroll(label):
     return False
 
 
-# WIFI SETUP
+# SET UP WIFI
 radio.connect(WIFI_SSID, WIFI_PASSWORD)
 
 if VERBOSE:
@@ -168,11 +171,10 @@ context = create_default_context()
 requests = Session(pool, context)
 
 
-# DISPLAY SETUP
+# SET UP DISPLAY
 release_displays() # release any existing displays
 
 master_group = Group()
-blank_group = Group()
 
 matrix = RGBMatrix(
     width=64,
@@ -201,21 +203,28 @@ matrix = RGBMatrix(
 
 display = FramebufferDisplay(matrix, auto_refresh=True)
 
-# blank rectangle
+# blank rectangle/group
+blank_group = Group()
 blank_rectangle = Rect(
     width=64, height=32, x=0, y=0, fill=BACKGROUND_COLOR
 )
-
-# draw initialization for blank group
 blank_group.append(blank_rectangle)
+blank_group.hidden = True # hide until needed
 
-# placeholder text labels
+# placeholder text labels/groups
+text_label_top_group = Group()
 text_label_top = Label(
     font=TEXT_FONT, color=TEXT_LABEL_COLOR, text="", x=25, y=10, scale=1
 )
+text_label_top_group.append(text_label_top)
+text_label_top_group.hidden = True # hide until first update
+
+text_label_bottom_group = Group()
 text_label_bottom = Label(
     font=TEXT_FONT, color=TEXT_LABEL_COLOR, text="", x=25, y=22, scale=1
 )
+text_label_bottom_group.append(text_label_bottom)
+text_label_bottom_group.hidden = True # hide until first update
 
 # border rectangles
 border_rectangle_left = Rect(
@@ -247,22 +256,25 @@ route_label_2 = Label(
     font=TEXT_FONT, color=BACKGROUND_COLOR, text=MTA_ROUTE_ID, x=10+1, y=16, scale=1
 )
 
-# alert true/false icons
-alert_true_icon = Circle(
+# alert icon/group
+alert_group = Group()
+alert_icon = Circle(
     x0=5, y0=8, r=2, fill=ALERT_ICON_COLOR
 )
+alert_group.append(alert_icon)
+alert_group.hidden = True # hide until needed
 
-# live true/false icons
-live_on_icon = Rect(
+# live icon/group
+live_group = Group()
+live_icon = Rect(
     width=2, height=2, x=3, y=24, fill=LIVE_ICON_COLOR
 )
-live_off_icon = Rect(
-    width=2, height=2, x=3, y=24, fill=BACKGROUND_COLOR
-)
+live_group.append(live_icon)
+live_group.hidden = True # hide until needed
 
 # draw initialization for master group
-master_group.append(text_label_top)
-master_group.append(text_label_bottom)
+master_group.append(text_label_top_group)
+master_group.append(text_label_bottom_group)
 
 master_group.append(border_rectangle_left)
 master_group.append(border_rectangle_right)
@@ -276,16 +288,16 @@ master_group.append(route_label_1)
 master_group.append(route_label_2)
 
 if SHOW_LIVE:
-    master_group.append(live_on_icon)
-else:
-    master_group.append(live_off_icon)
+    master_group.append(live_group)
 
-# set display root group to master group and refresh display to update
+if SHOW_ALERT:
+    master_group.append(alert_group)
+
+# set display root group to master group
 display.root_group = master_group
-display.refresh()
 
 
-# MAIN LOOP TO SHOW TRAINS
+# RUN MAIN LOOP TO SHOW TRAINS
 setup = False
 reset = True
 previous_hour = RESTART_HOUR
@@ -304,9 +316,9 @@ while True:
         current_time, current_hour = get_time(requests)
 
         if current_time and isinstance(current_hour, int):
-            if (previous_hour == RESTART_HOUR_PREV and current_hour == RESTART_HOUR) or mem_free() < 1000: # restart at restart hour or if low memory
+            # restart at restart hour or if low memory
+            if (previous_hour == RESTART_HOUR_PREV and current_hour == RESTART_HOUR) or mem_free() < 1000:
                 display.root_group = blank_group
-                display.refresh()
                 break
             
             if ON_HOUR < OFF_HOUR:
@@ -321,8 +333,7 @@ while True:
 
             if not active:
                 display.root_group = blank_group
-                display.refresh()
-                time.sleep(SLEEP_LATENCY)
+                time.sleep(SLEEP_DELAY)
                 continue
 
             previous_hour = current_hour
@@ -344,9 +355,7 @@ while True:
                 formatted_times = ','.join([str(t) for t in times[:2]]) # format next 2 times if too long
             
             formatted_symbol = str(symbol)
-
             formatted_destination = str(destination)
-
             formatted_alert = bool(alert)
 
             if VERBOSE:
@@ -362,79 +371,66 @@ while True:
             print(f"live: {live}\n")
 
         if live:
-            # mark setup as complete
-            setup = True
-            
-            # draw text 
-            text_label_top = Label(
-                font=TEXT_FONT, color=TEXT_LABEL_COLOR, text=formatted_destination, x=25, y=10, scale=1
-            )
-            text_label_bottom = Label(
-                font=TEXT_FONT, color=TEXT_LABEL_COLOR, text=formatted_times, x=25, y=22, scale=1
-            )
+            setup = True # mark setup as complete
             
             # update text labels on master group
-            master_group.pop(0)
-            master_group.insert(0, text_label_top)
+            text_label_top.text = formatted_destination
+            text_label_bottom.text = formatted_times
 
-            master_group.pop(1)
-            master_group.insert(1, text_label_bottom)
+            # update live icon/group on master group
+            live_group.hidden = False
 
-            # update alert icon on master group
+            # update alert icon/group on master group
             if SHOW_ALERT:
                 if alert:
-                    if len(master_group) >= 12:
-                        master_group.pop(11)
-                    master_group.insert(11, alert_true_icon)
+                    alert_group.hidden = False
                 else:
-                    if len(master_group) >= 12:
-                        master_group.pop(11)
+                    alert_group.hidden = True
             
         else:
             if SHOW_LIVE:
-                # update live icon on master group
-                master_group.pop(10)
-                master_group.insert(10, live_on_icon)
-        
-        # set display root group to master group
-        display.root_group = master_group
+                # update live icon/group on master group
+                live_group.hidden = True
 
     # if setup completed
     if setup:
+        # show text and add initial delay before starting scroll
+        if reset:
+            text_label_top_group.hidden = False
+            text_label_bottom_group.hidden = False
+            time.sleep(1)
+        
         # scroll text and update reset condition
-        reset = scroll(text_label_top) # scroll top label
-
+        reset = scroll(text_label_top)
+        
         # flash live icon if data is live
         if SHOW_LIVE:
             if live:
-                if i % (LIVE_ICON_LATENCY*2) == 0:
-                    master_group.pop(10)
-                    master_group.insert(10, live_off_icon)
-                elif i % LIVE_ICON_LATENCY == 0:
-                    master_group.pop(10)
-                    master_group.insert(10, live_on_icon)
+                if i % (LIVE_ICON_DELAY*2) == 0:
+                    live_group.hidden = True
+                elif i % LIVE_ICON_DELAY == 0:
+                    live_group.hidden = False
         
         if reset:
-            master_group.pop(10)
-            master_group.insert(10, live_on_icon)
+            live_group.hidden = False
         
-        # refresh display to update
-        if not reset:
-            display.refresh(minimum_frames_per_second=0)
-        
-        i += 1
+        i += 1 # increment counter
 
-        # wait before next iteration
-        time.sleep(TEXT_LABEL_LATENCY)
+        # hide top text if reset or add delay before next iteration if not reset
+        if reset:
+            text_label_top_group.hidden = True
+        else:
+            time.sleep(TEXT_LABEL_DELAY)
 
-    # if setup failed
+    # add delay before retrying if setup failed
     else:
         reset = True
-        
-        # wait before retrying
-        time.sleep(RETRY_LATENCY)
+        time.sleep(RETRY_DELAY)
     
 
-# CLEANUP
+# CLEAN UP
+# set display root group to blank group and show
 display.root_group = blank_group
+blank_group.hidden = False
+
 connection_manager_close_all(pool)

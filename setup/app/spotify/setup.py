@@ -4,10 +4,11 @@ import json
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.client import Spotify
 
+
 # PARAMETERS
 SPOTIFY_CLIENT_ID = "" # string of alphanumeric characters
 SPOTIFY_CLIENT_SECRET = "" # string of alphanumeric characters
-SPOTIPY_REDIRECT_URI = "" # should likely be a https:// type address
+SPOTIPY_REDIRECT_URI = "http://127.0.0.1:8000/callback" # should likely be a https:// type address
 
 SPOTIFY_CACHE_PATH = ".cache" # path to token cache file
 SPOTIFY_TOKENS_PATH = "tokens.json" # path to token json file

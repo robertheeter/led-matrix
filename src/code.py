@@ -13,20 +13,26 @@ APP_PATH = "/app.json"
 LOG_PATH = "/code_out.txt" # log file path
 MAX_LOG_SIZE = 5000 # max log file size [bytes]
 
-ERROR_LATENCY = 30 # latency (wait) after error before retrying [seconds]
+ERROR_DELAY = 30 # delay after error before retrying [seconds]
 
 
-# LOG SETUP
+# SET UP LOGGING
+try:
+    os.stat(LOG_PATH)
+except OSError:
+    open(LOG_PATH, "w").close() # create log file if it does not exist
+
 log_size = os.stat(LOG_PATH)[6] # get log file size
 
 if VERBOSE:
     print(f"log_size: {log_size}")
 
 if log_size > MAX_LOG_SIZE:
-    os.remove(LOG_PATH)
+    os.rename(LOG_PATH, LOG_PATH + ".old")
+    open(LOG_PATH, "w").close() # clear log file if it exceeds max size
 
 
-# APP SELECTION
+# SELECT APP
 with open(APP_PATH, 'r') as file:
     data = json.load(file) # read previous app from json file
 
@@ -37,7 +43,11 @@ reload = data['reload']
 if reload:
     app = previous_app
 else:
-    previous_app_index = app_list.index(previous_app)
+    if previous_app in app_list:
+        previous_app_index = app_list.index(previous_app)
+    else:
+        previous_app_index = -1
+
     app = app_list[(previous_app_index + 1) % len(app_list)] # select next sequential app
 
 with open(APP_PATH, 'w') as file:
@@ -52,7 +62,8 @@ if VERBOSE:
 complete = False
 while not complete:
     try:
-        exec(open(f"{app}").read()) # execute app file
+        with open(app) as f:
+            exec(f.read()) # execute app file
 
         complete = True
         if VERBOSE:
@@ -69,9 +80,9 @@ while not complete:
         
         # wait before retrying
         if VERBOSE:
-            print(f"app reload: {ERROR_LATENCY} seconds")
+            print(f"app reload: {ERROR_DELAY} seconds")
         
-        time.sleep(ERROR_LATENCY)
+        time.sleep(ERROR_DELAY)
 
 with open(APP_PATH, 'w') as file:
     data = {'previous_app': app, 'app_list': app_list, 'reload': True}
