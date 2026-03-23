@@ -247,7 +247,7 @@ def scroll(label):
     group = label[0]
     group.x -= 1 # move label left
 
-    if group.x < (-1*6*len(label.text) - 32): # if label has moved full length, refresh to initial position and return True
+    if group.x < -1*6*len(label.text): # if label has moved full length, refresh to initial position and return True
         group.x = 0
         return True
     
