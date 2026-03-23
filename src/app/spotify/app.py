@@ -28,7 +28,7 @@ from adafruit_display_text.label import Label
 VERBOSE = False # print data
 
 TEXT_LABEL_DELAY = 0.06 # scroll speed for top text label (and refresh speed at the end of each scroll) [seconds]
-RETRY_DELAY = 5  # delay before retrying between iterations after error [seconds]
+RETRY_DELAY = 10  # delay before retrying between iterations after error [seconds]
 
 APP_PATH = "/app/spotify/app.py" # app file path
 LOG_PATH = "/code_out.txt" # log file path
@@ -196,6 +196,9 @@ def format_song_artist(song_name, artist_list, spacer=5):
         formatted_artist += f"{(a - b) * ' '}"
     elif a < b:
         formatted_song += f"{(b - a) * ' '}"
+
+    formatted_song = f"{spacer * ' '}{formatted_song}"
+    formatted_artist = f"{spacer * ' '}{formatted_artist}"
 
     return formatted_song, formatted_artist
 
@@ -464,10 +467,9 @@ while True:
 
     # if setup completed
     if setup:
-        # show text and add initial delay before starting scroll
+        # show text if reset
         if reset:
             text_label_group.hidden = False
-            time.sleep(1)
         
         # scroll text and update reset condition
         reset = scroll(text_label_top)

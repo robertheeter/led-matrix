@@ -35,7 +35,7 @@ RESTART_HOUR = 4 # restart hour (UTC) [hour]
 
 TEXT_LABEL_DELAY = 0.06 # scroll speed for top text label (and refresh speed at the end of each scroll) [seconds]
 LIVE_ICON_DELAY = 6 # flash speed for live icon [seconds]
-RETRY_DELAY = 5 # delay before retrying between iterations after error [seconds]
+RETRY_DELAY = 10 # delay before retrying between iterations after error [seconds]
 SLEEP_DELAY = 10 # delay between iterations while sleeping [seconds]
 
 APP_PATH = "/app/subway/app.py" # app file path
